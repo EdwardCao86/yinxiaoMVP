@@ -216,16 +216,16 @@ async function generateWithLLM(comment) {
 {"topics":[{"title":"","angle":"","sentiment":"positive|neutral|negative","risk_level":"low|medium|high","score":0,"keywords":[],"evidence":[],"summary":"","banner_title":"","banner_subtitle":"","half_screen_title":"","article":"","related_assets":[{"code":"","name":"","type":"ETF|股票|基金|指数|板块|其他","direction":"","risk":"低|中|中高|高","reason":""}],"risk_warning":""}]}
 
 字段约束：
-1. topics 输出 2-3 个，按营销价值和证据强度降序。
+1. topics 输出 2-3 个，按营销价值和证据强度降序，注意topic内容不要重复。
 2. title 尽量 14-18 个中文字符，必须是单一主题；banner_title 16 字以内；banner_subtitle 24 字以内；half_screen_title 20 字以内。
 3. score 为 0-100 整数，综合证据强度、用户关注度、运营承接价值。
 4. keywords 输出 3-5 个，必须来自正文或正文中的概念。
 5. evidence 输出 1-2 条，必须是正文原句或尽量接近原句。
 6. summary 60-90 字。
 7. article 180-260 字，必须覆盖：发生了什么、为什么值得关注、相关资产线索、风险提示。
-8. related_assets 每个热点优先输出 3-5 个最相关线索；只有正文证据不足以支撑更多线索时才少于 3 个。优先输出 ETF/基金/指数等可承接金融产品品类，code 无正文支撑时为空。
+8. related_assets 每个热点优先输出 3-5 个最相关线索；只有正文证据不足以支撑更多线索时才少于 3 个。优先输出 ETF/基金/指数等可承接金融产品品类，注意不要太空泛具体一点，避免例如A股，港股这样的输出，code 无正文支撑时为空。
 9. risk_warning 必须包含“不构成投资建议”。
-10. 只输出 JSON，不要 Markdown，不要解释，不要代码块。
+10. **只输出 JSON，不要 Markdown，不要解释，不要代码块。**。
 
 券商评论：${JSON.stringify(llmComment)}`,
   };

@@ -6,7 +6,9 @@
   "description": "券商评论接口到热点文章和 Banner 生成的端到端 MVP",
   "scripts": {
     "start": "node server.mjs",
+    "start:4194": "PORT=4194 node server.mjs",
     "dev": "node server.mjs",
+    "restart:4194": "sh -c 'pids=$(lsof -tiTCP:${PORT:-4194} -sTCP:LISTEN 2>/dev/null); if [ -n \"$pids\" ]; then kill $pids; fi; PORT=${PORT:-4194} node server.mjs'",
     "test": "node tests/smoke.test.mjs"
   },
   "engines": {

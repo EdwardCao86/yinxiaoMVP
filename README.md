@@ -9,6 +9,13 @@ npm start
 # http://localhost:4193
 ```
 
+如果你平时固定在 `4194` 调试，也可以直接用：
+
+```bash
+npm run start:4194
+npm run restart:4194
+```
+
 ## Test
 
 ```bash
