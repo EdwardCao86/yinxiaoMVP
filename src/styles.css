@@ -214,6 +214,27 @@ h2 { margin: 0 0 14px; font-size: 20px; }
 .topic.active { border-color: var(--blue); box-shadow: 0 10px 24px rgba(36,107,254,.12); }
 .topic h3 { margin: 8px 0; font-size: 17px; }
 .topic p { margin: 0; color: var(--muted); line-height: 1.55; }
+.evidence {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.evidence > b {
+  color: #344054;
+  font-size: 13px;
+}
+.evidence blockquote {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--blue);
+  border-radius: 6px;
+  background: #f5f8ff;
+  color: #475467;
+  font-size: 13px;
+  line-height: 1.55;
+}
 .row { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .badge {
   display: inline-flex;

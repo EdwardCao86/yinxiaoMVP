@@ -118,6 +118,7 @@ function renderTopics() {
       <h3>${escapeHtml(topic.title)}</h3>
       <p>${escapeHtml(topic.summary)}</p>
       <p><b>关键词：</b>${topic.keywords.map(escapeHtml).join('、')}</p>
+      ${renderEvidence(topic.evidence)}
     </article>
   `).join('');
   document.querySelectorAll('.topic').forEach(node => {
@@ -127,6 +128,16 @@ function renderTopics() {
       renderMaterials();
     });
   });
+}
+
+function renderEvidence(evidence = []) {
+  if (!Array.isArray(evidence) || !evidence.length) return '';
+  return `
+    <div class="evidence">
+      <b>原文证据</b>
+      ${evidence.slice(0, 2).map(item => `<blockquote>${escapeHtml(item)}</blockquote>`).join('')}
+    </div>
+  `;
 }
 
 function renderMaterials() {
