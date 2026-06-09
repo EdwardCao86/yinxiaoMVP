@@ -248,8 +248,17 @@ async function generateWithLLM(comment) {
     signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`LLM ${res.status}`);
-  const json = await res.json();
+  const rawText = await res.text();
+  console.log('[LLM] response content-type:', res.headers.get('content-type') || 'unknown');
+  console.log('[LLM] raw response text:', rawText);
+  let json;
+  try {
+    json = JSON.parse(rawText);
+  } catch (error) {
+    throw new Error(`LLM returned non-JSON response: ${sanitizeErrorMessage(rawText.slice(0, 300))}`);
+  }
   const content = json.choices?.[0]?.message?.content;
+  console.log('[LLM] raw response content:', content);
   const parsed = parseLLMJson(content);
   return {
     generator: `llm:${model}`,
