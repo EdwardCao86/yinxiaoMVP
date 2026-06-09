@@ -1,4 +1,4 @@
-# Broker Hotspot MVP
+# yinxiaoMVP
 
 券商评论接口到热点文章和 Banner 生成的端到端 MVP。
 

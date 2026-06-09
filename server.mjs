@@ -484,7 +484,7 @@ async function staticFile(res, pathname) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    if (url.pathname === '/api/health') return json(res, { ok: true, name: 'broker-hotspot-mvp', time: new Date().toISOString() });
+    if (url.pathname === '/api/health') return json(res, { ok: true, name: 'yinxiaoMVP', time: new Date().toISOString() });
     if (url.pathname === '/api/columns') return json(res, { ok: true, data: columns });
     if (url.pathname === '/api/comment') {
       const columnCode = url.searchParams.get('columnCode') || 'SEC0004';
@@ -502,5 +502,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Broker Hotspot MVP running at http://localhost:${PORT}`);
+  console.log(`yinxiaoMVP running at http://localhost:${PORT}`);
 });
