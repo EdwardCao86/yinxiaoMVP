@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>券商评论热点生成 MVP</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <nav>
+        <div class="brand">
+          <span>AI</span>
+          <div>
+            <strong>券商评论热点生成 MVP</strong>
+            <small>Broker Comment → Hotspot → Article & Banner</small>
+          </div>
+        </div>
+        <div class="actions">
+          <select id="columnSelect"></select>
+          <button id="runBtn">运行全链路</button>
+        </div>
+      </nav>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">V0 MVP 验证链路</p>
+          <h1>从券商评论接口直接生成营销热点文章和 Banner</h1>
+          <p>读取早盘/盘中/盘后/产业链评论，清洗 HTML，抽取热点，映射资产，生成文章、Banner、半屏标题和订阅话题。</p>
+        </div>
+        <div class="metrics">
+          <div><strong id="topicCount">--</strong><span>热点</span></div>
+          <div><strong id="assetCount">--</strong><span>资产线索</span></div>
+          <div><strong id="generator">--</strong><span>生成器</span></div>
+        </div>
+      </section>
+    </header>
+
+    <main>
+      <section class="panel flow">
+        <h2>链路状态</h2>
+        <div id="pipeline" class="pipeline"></div>
+      </section>
+
+      <section class="grid">
+        <article class="panel comment">
+          <h2>券商评论解析</h2>
+          <div id="commentBox"></div>
+        </article>
+
+        <article class="panel topics">
+          <h2>热点候选</h2>
+          <div id="topicList"></div>
+        </article>
+      </section>
+
+      <section class="grid material-grid">
+        <article class="panel article-panel">
+          <h2>热点文章</h2>
+          <div id="articleBox"></div>
+        </article>
+
+        <aside class="phone-panel">
+          <div class="phone">
+            <div class="phone-status"><b></b></div>
+            <div class="phone-screen">
+              <div class="banner" id="bannerBox"></div>
+              <div class="half" id="halfBox"></div>
+              <div class="asset-card" id="assetBox"></div>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="panel raw-panel">
+        <h2>结构化 JSON</h2>
+        <pre id="rawJson"></pre>
+      </section>
+    </main>
+
+    <div id="toast" class="toast"></div>
+    <div id="loading" class="loading"><span></span><b>正在运行券商评论到热点物料的全链路...</b></div>
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>
