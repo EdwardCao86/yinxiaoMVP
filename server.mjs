@@ -14,7 +14,7 @@ const SRC = path.join(ROOT, 'src');
 
 loadDotEnv();
 
-const BROKER_API_URL = process.env.BROKER_API_URL || 'https://saas.htsc.com.cn:1462/content/tencent/proxy/content/queryContentMaterialInfo';
+const BROKER_API_URL = process.env.BROKER_API_URL || '';
 const BROKER_BUSS_ID = Number(process.env.BROKER_BUSS_ID || 10001);
 const BROKER_PROXY_URL = process.env.BROKER_PROXY_URL || '';
 const BROKER_PROXY_USER = process.env.BROKER_PROXY_USER || '';
@@ -97,7 +97,7 @@ async function fetchBrokerHtml(columnCode) {
   if (process.env.BROKER_API_DISABLED === 'true') {
     return { html: sampleHtml[columnCode] || sampleHtml.SEC0004, source: 'sample-disabled' };
   }
-  if (!BROKER_PROXY_URL || !BROKER_PROXY_USER) {
+  if (!BROKER_API_URL || !BROKER_PROXY_URL || !BROKER_PROXY_USER) {
     return { html: sampleHtml[columnCode] || sampleHtml.SEC0004, source: 'sample-no-proxy-config' };
   }
 
@@ -130,6 +130,13 @@ function sanitizeErrorMessage(message = '') {
   if (BROKER_PROXY_USER) sanitized = sanitized.replaceAll(BROKER_PROXY_USER, '<BROKER_PROXY_USER>');
   if (process.env.OPENAI_API_KEY) sanitized = sanitized.replaceAll(process.env.OPENAI_API_KEY, '<OPENAI_API_KEY>');
   return sanitized;
+}
+
+function publicSource(source = {}) {
+  return {
+    source: source.source,
+    note: source.note,
+  };
 }
 
 function extractHtmlFromApiPayload(payload) {
@@ -407,7 +414,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/comment') {
       const columnCode = url.searchParams.get('columnCode') || 'SEC0004';
       const source = await fetchBrokerHtml(columnCode);
-      return json(res, { ok: true, source, data: parseBrokerHtml(source.html, columnCode) });
+      return json(res, { ok: true, source: publicSource(source), data: parseBrokerHtml(source.html, columnCode) });
     }
     if (url.pathname === '/api/materials' && req.method === 'POST') {
       const body = await readJsonBody(req);

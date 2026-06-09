@@ -24,16 +24,16 @@ npm test
 
 ## Optional Environment
 
-真实券商接口按你提供的 curl 形态调用：`curl -sS -x <proxy> --proxy-user <user> -H 'Content-Type: application/json' -d '{"columnCode":"...","bussId":10001}' <url>`。
+真实券商接口按环境变量配置，并按 curl 形态由服务端调用：`curl -sS -x <proxy> --proxy-user <user> -H 'Content-Type: application/json' -d '{"columnCode":"...","bussId":10001}' <url>`。
 
 复制 `.env.example` 为 `.env` 后填入代理账号即可；`.env` 不会进入 git：
 
 ```bash
 cp .env.example .env
 
-BROKER_API_URL="https://saas.htsc.com.cn:1462/content/tencent/proxy/content/queryContentMaterialInfo"
-BROKER_PROXY_URL="http://your-proxy:8118"
-BROKER_PROXY_USER="user:password"
+BROKER_API_URL="https://your-broker-api.example.com/path/to/query"
+BROKER_PROXY_URL="http://your-proxy.example.com:8118"
+BROKER_PROXY_USER="replace_with_proxy_auth"
 BROKER_BUSS_ID=10001
 ```
 
