@@ -150,7 +150,8 @@ function renderMaterials() {
     ${topic.relatedAssets.length ? topic.relatedAssets.map(asset => `
       <div class="asset">
         <b>${escapeHtml(asset.name)}</b>
-        <p>${escapeHtml(asset.code)} · ${escapeHtml(asset.type)} · ${escapeHtml(asset.direction)} · 风险${escapeHtml(asset.risk)}</p>
+        <p>${escapeHtml(formatAssetMeta(asset))}</p>
+        ${asset.reason ? `<p>${escapeHtml(asset.reason)}</p>` : ''}
       </div>
     `).join('') : '<p>暂无明确资产映射</p>'}
   `;
@@ -162,8 +163,18 @@ function selectedTopic() {
 
 function uniqueAssets(topics) {
   const set = new Set();
-  topics.flatMap(t => t.relatedAssets).forEach(a => set.add(a.code));
+  topics
+    .flatMap(t => t.relatedAssets)
+    .forEach(a => set.add(assetKey(a)));
   return [...set];
+}
+
+function assetKey(asset) {
+  return asset.code || `${asset.name}-${asset.type}-${asset.direction}`;
+}
+
+function formatAssetMeta(asset) {
+  return [asset.code, asset.type, asset.direction, `风险${asset.risk}`].filter(Boolean).join(' · ');
 }
 
 async function fetchJson(url, options) {
