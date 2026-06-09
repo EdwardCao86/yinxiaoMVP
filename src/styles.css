@@ -114,6 +114,7 @@ h2 { margin: 0 0 14px; font-size: 20px; }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 18px;
+  align-items: stretch;
 }
 .pipeline {
   display: grid;
@@ -187,8 +188,6 @@ h2 { margin: 0 0 14px; font-size: 20px; }
 .paragraphs {
   display: grid;
   gap: 10px;
-  max-height: 390px;
-  overflow: auto;
   margin-top: 12px;
 }
 .paragraphs p {
@@ -199,11 +198,9 @@ h2 { margin: 0 0 14px; font-size: 20px; }
   color: #344054;
   line-height: 1.7;
 }
-.topic-list {
+#topicList {
   display: grid;
   gap: 10px;
-  max-height: 500px;
-  overflow: auto;
 }
 .topic {
   border: 1px solid var(--line);
