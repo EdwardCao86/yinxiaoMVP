@@ -223,7 +223,7 @@ async function generateWithLLM(comment) {
 5. evidence 输出 1-2 条，必须是正文原句或尽量接近原句。
 6. summary 60-90 字。
 7. article 180-260 字，必须覆盖：发生了什么、为什么值得关注、相关资产线索、风险提示。
-8. related_assets 每个热点最多输出 2 个最相关线索，禁止超过 2 个；优先输出 ETF/基金/指数等可承接金融产品品类，code 无正文支撑时为空。
+8. related_assets 每个热点最多输出 5 个最相关线索，禁止超过 5 个；优先输出 ETF/基金/指数等可承接金融产品品类，code 无正文支撑时为空。
 9. risk_warning 必须包含“不构成投资建议”。
 10. 只输出 JSON，不要 Markdown，不要解释，不要代码块。
 
