@@ -178,17 +178,51 @@ async function generateWithLLM(comment) {
   };
   const prompt = {
     role: 'user',
-    content: `你是证券业务内容运营助手。只基于券商评论正文提取热点、判断资产/产品线索、生成运营物料。不得使用外部事实，不得编造正文没有支撑的产品代码，不得给买卖建议。
+    content: `你是券商 App 的证券资讯运营助手，目标是把一篇券商评论转成可用于 App 首页/行情页分发的热点内容物料。
+
+输入说明：
+- 输入是券商评论 HTML 清洗后的结构化正文。
+- 只能使用输入中的标题、正文、数据来源和风险提示。
+- 不得使用外部事实，不得补充正文没有支撑的事件、数据、公司或产品。
+
+任务：
+1. 从正文中提取 2-3 个最适合做营销分发的热点。
+2. 为每个热点判断资产/产品/板块线索。
+3. 生成 Banner、半屏标题、摘要、文章和风险提示。
+
+热点选择标准，按优先级排序：
+1. 正文证据明确，至少能摘出 1 条原文证据句。
+2. 用户可理解，有清晰的投资者关注点，例如风险波动、政策催化、产业事件、市场风格、资产配置。
+3. 适合做运营承接，有可解释的资产/板块/产品线索。
+4. 一个 topic 只能表达一个主线；没有直接因果关系的主题必须拆开，不能为了凑数量合并。
+5. 不输出只有一句泛泛表述、缺少证据或难以承接的主题；宁可输出 2 个高质量热点，也不要输出 3 个拼接热点。
+
+资产/产品线索规则：
+1. 只有正文明确提到具体产品、指数、股票、基金、ETF 时，才可输出具体 code/name。
+2. 正文只支持方向判断时，输出板块/指数/资产方向，code 必须为空字符串。
+3. 禁止编造产品代码，禁止把宽泛板块强行映射成具体 ETF。
+4. reason 必须说明“为什么该线索与热点相关”，依据必须来自正文。
+
+文案风格：
+1. Banner 标题要短、有信息点，避免夸张和收益暗示。
+2. Banner 副标题说明核心变化或观察角度。
+3. article 用资讯解读口吻，不要 Markdown 标题，不要列表符号，不要投资建议。
+4. 风险提示必须自然包含“不构成投资建议”。
 
 只输出严格 JSON：
 {"topics":[{"title":"","angle":"","sentiment":"positive|neutral|negative","risk_level":"low|medium|high","score":0,"keywords":[],"evidence":[],"summary":"","banner_title":"","banner_subtitle":"","half_screen_title":"","article":"","related_assets":[{"code":"","name":"","type":"ETF|股票|基金|指数|板块|其他","direction":"","risk":"低|中|中高|高","reason":""}],"risk_warning":""}]}
 
-约束：
-1. 输出 2-3 个 topics，按营销价值和证据强度降序。
-2. evidence 必须摘自正文，1-2 条即可。
-3. article 每篇 180-280 字，包含事实解读、关注理由、资产线索、风险提示。
-4. risk_warning 必须包含“不构成投资建议”。
-5. 只输出 JSON。
+字段约束：
+1. topics 输出 2-3 个，按营销价值和证据强度降序。
+2. title 尽量 14-18 个中文字符，必须是单一主题；banner_title 16 字以内；banner_subtitle 24 字以内；half_screen_title 20 字以内。
+3. score 为 0-100 整数，综合证据强度、用户关注度、运营承接价值。
+4. keywords 输出 3-5 个，必须来自正文或正文中的概念。
+5. evidence 输出 1-2 条，必须是正文原句或尽量接近原句。
+6. summary 60-90 字。
+7. article 180-260 字，必须覆盖：发生了什么、为什么值得关注、相关资产线索、风险提示。
+8. related_assets 每个热点最多输出 2 个最相关线索，禁止超过 2 个；无法支撑具体产品时输出板块/指数/资产方向，code 为空。
+9. risk_warning 必须包含“不构成投资建议”。
+10. 只输出 JSON，不要 Markdown，不要解释，不要代码块。
 
 券商评论：${JSON.stringify(llmComment)}`,
   };
@@ -282,7 +316,7 @@ function normalizeStringArray(value, field) {
 
 function normalizeAssets(value, topicIndex) {
   if (!Array.isArray(value)) return [];
-  return value.slice(0, 4).map((asset, assetIndex) => ({
+  return value.slice(0, 2).map((asset, assetIndex) => ({
     code: typeof asset.code === 'string' ? asset.code.trim() : '',
     name: assertString(asset.name, `topics[${topicIndex}].related_assets[${assetIndex}].name`),
     type: assertString(asset.type, `topics[${topicIndex}].related_assets[${assetIndex}].type`),
