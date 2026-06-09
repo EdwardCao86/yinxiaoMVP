@@ -49,76 +49,6 @@ const sampleHtml = {
   SEC0034: `<h1><span>【产业链图谱】</span><span>机器人产业链热度提升</span></h1><div><span>机器人产业链涵盖减速器、伺服系统、控制器、传感器、整机制造和应用场景等环节。</span></div><div><span>近期人形机器人订单、AI 模型迭代和智能制造升级成为产业链关注催化。</span></div><div><span>相关资产包括机器人 ETF、智能制造基金、工业自动化和高端装备方向。</span></div><div><warn>风险提示：产业趋势不代表短期股价表现，投资需谨慎。</warn></div>`,
 };
 
-const assetUniverse = [
-  { code: '159770', name: '机器人ETF', type: 'ETF', keywords: ['机器人', '物理AI', '人形机器人', '智能制造', '工业自动化'], risk: '高', direction: '机器人产业链' },
-  { code: '159819', name: '人工智能ETF', type: 'ETF', keywords: ['AI', '算力', '英伟达', '半导体', '内存'], risk: '中高', direction: 'AI 科技' },
-  { code: '512760', name: '半导体ETF', type: 'ETF', keywords: ['半导体', '芯片', 'SK海力士', '英伟达', '内存'], risk: '高', direction: '半导体' },
-  { code: '518880', name: '黄金ETF', type: 'ETF', keywords: ['黄金', '央行', '避险', '地缘', '伊朗', '以色列'], risk: '中', direction: '贵金属' },
-  { code: '515080', name: '中证红利ETF', type: 'ETF', keywords: ['红利', '低位', '防守', '银行', '保险'], risk: '中', direction: '红利防守' },
-  { code: '000001', name: '平安银行', type: '股票', keywords: ['银行', '保险', '防守'], risk: '中', direction: '金融防守' },
-  { code: '159611', name: '基建ETF', type: 'ETF', keywords: ['城市更新', '地下管网', '工程机械', '基建'], risk: '中高', direction: '基建城市更新' },
-  { code: '159915', name: '创业板ETF', type: 'ETF', keywords: ['创业板', '科技', '成长'], risk: '高', direction: '成长风格' },
-];
-
-const topicRules = [
-  {
-    id: 'global-risk',
-    keywords: ['全球资产', '大跌', '熔断', '破位', '港股', '日韩', '比特币', '风险偏好'],
-    title: '全球资产波动加剧，防守思路升温',
-    angle: '宏观风险',
-    sentiment: 'negative',
-    riskLevel: 'high',
-  },
-  {
-    id: 'robotics',
-    keywords: ['机器人', '物理AI', '人形机器人', '优必选', '智能制造', '工业气体'],
-    title: '机器人方向逆势活跃，产业链关注度提升',
-    angle: '产业主题',
-    sentiment: 'positive',
-    riskLevel: 'medium',
-  },
-  {
-    id: 'city-renewal',
-    keywords: ['城市更新', '地下管网', '工程机械', '十五五', '基建'],
-    title: '城市更新任务推进，基建链条迎来政策线索',
-    angle: '政策主题',
-    sentiment: 'positive',
-    riskLevel: 'medium',
-  },
-  {
-    id: 'geopolitics',
-    keywords: ['以色列', '伊朗', '胡塞', '导弹', '特朗普', '中东'],
-    title: '地缘扰动升温，避险情绪仍需关注',
-    angle: '地缘风险',
-    sentiment: 'negative',
-    riskLevel: 'high',
-  },
-  {
-    id: 'gold',
-    keywords: ['黄金', '央行', '外汇储备', '增持', '避险'],
-    title: '黄金储备延续增加，贵金属配置线索强化',
-    angle: '贵金属',
-    sentiment: 'neutral',
-    riskLevel: 'medium',
-  },
-  {
-    id: 'ai-chip',
-    keywords: ['英伟达', 'SK海力士', 'AI工厂', '内存', '半导体', '芯片'],
-    title: 'AI 芯片与内存合作推进，算力产业链再获关注',
-    angle: 'AI 科技',
-    sentiment: 'positive',
-    riskLevel: 'medium',
-  },
-  {
-    id: 'defensive-dividend',
-    keywords: ['银行', '保险', '红利', '防守', '低位板块'],
-    title: '防守板块相对占优，红利资产线索延续',
-    angle: '防守风格',
-    sentiment: 'neutral',
-    riskLevel: 'low',
-  },
-];
-
 function stripTags(value = '') {
   return String(value)
     .replace(/<br\s*\/?>/gi, '\n')
@@ -227,88 +157,17 @@ function extractHtmlFromApiPayload(payload) {
   throw new Error('broker api response did not contain html content');
 }
 
-function extractTopics(comment) {
-  const fullText = `${comment.title}\n${comment.paragraphs.join('\n')}`;
-  const topics = [];
-  for (const rule of topicRules) {
-    const hits = rule.keywords.filter(k => fullText.includes(k));
-    if (!hits.length) continue;
-    const evidence = comment.paragraphs
-      .filter(p => hits.some(k => p.includes(k)))
-      .slice(0, 3);
-    const assets = matchAssets(`${rule.title} ${hits.join(' ')} ${evidence.join(' ')}`);
-    const score = scoreTopic(rule, hits, evidence, assets, comment);
-    topics.push({
-      id: `${rule.id}-${hash(comment.title).slice(0, 6)}`,
-      title: rule.title,
-      angle: rule.angle,
-      sentiment: rule.sentiment,
-      riskLevel: rule.riskLevel,
-      score,
-      keywords: hits,
-      evidence,
-      relatedAssets: assets,
-      sourceColumn: comment.columnCode,
-      sourceTitle: comment.title,
-    });
+async function generateMaterials(comment) {
+  if (process.env.MOCK_LLM === 'true') {
+    return generateWithMockLLM(comment);
   }
-  if (!topics.length) {
-    topics.push({
-      id: `market-summary-${hash(comment.title).slice(0, 6)}`,
-      title: comment.title.replace(/^【.*?】/, ''),
-      angle: '市场解读',
-      sentiment: 'neutral',
-      riskLevel: 'medium',
-      score: 62,
-      keywords: ['市场', '热点'],
-      evidence: comment.paragraphs.slice(0, 2),
-      relatedAssets: [],
-      sourceColumn: comment.columnCode,
-      sourceTitle: comment.title,
-    });
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is required for hotspot generation');
   }
-  return topics.sort((a, b) => b.score - a.score).slice(0, 5);
+  return generateWithLLM(comment);
 }
 
-function scoreTopic(rule, hits, evidence, assets, comment) {
-  const firstEvidenceIndex = evidence.length ? comment.paragraphs.findIndex(p => p === evidence[0]) : 99;
-  const positionScore = Math.max(0, 30 - firstEvidenceIndex * 4);
-  const importance = Math.min(25, hits.length * 5 + evidence.length * 4);
-  const assetScore = Math.min(15, assets.length * 5);
-  const riskBoost = rule.riskLevel === 'high' ? 8 : rule.riskLevel === 'medium' ? 5 : 2;
-  const marketability = rule.sentiment === 'positive' ? 12 : 8;
-  return Math.min(98, Math.round(35 + positionScore + importance + assetScore + riskBoost + marketability));
-}
-
-function matchAssets(text) {
-  return assetUniverse
-    .map(asset => {
-      const hits = asset.keywords.filter(k => text.includes(k));
-      return {
-        ...asset,
-        matchedKeywords: hits,
-        relevance: Math.min(96, 45 + hits.length * 18),
-      };
-    })
-    .filter(asset => asset.matchedKeywords.length)
-    .sort((a, b) => b.relevance - a.relevance)
-    .slice(0, 4)
-    .map(({ keywords, ...asset }) => asset);
-}
-
-async function generateMaterials(comment, topics) {
-  if (process.env.OPENAI_API_KEY) {
-    try {
-      return await generateWithLLM(comment, topics);
-    } catch (error) {
-      const local = generateLocally(comment, topics);
-      return { ...local, generator: 'local-fallback', generatorNote: `LLM unavailable: ${error.message}` };
-    }
-  }
-  return { ...generateLocally(comment, topics), generator: 'local-rule-engine' };
-}
-
-async function generateWithLLM(comment, topics) {
+async function generateWithLLM(comment) {
   const base = (process.env.OPENAI_API_BASE || 'https://api.openai.com/v1').replace(/\/$/, '');
   const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
   const llmComment = {
@@ -316,23 +175,25 @@ async function generateWithLLM(comment, topics) {
     columnName: comment.columnName,
     title: comment.title,
     publishDate: comment.publishDate,
-    paragraphs: comment.paragraphs,
+    paragraphs: comment.paragraphs.map(p => p.slice(0, 360)).slice(0, 8),
     dataSourceText: comment.dataSourceText,
     riskWarning: comment.riskWarning,
   };
-  const llmTopics = topics.map(topic => ({
-    title: topic.title,
-    angle: topic.angle,
-    sentiment: topic.sentiment,
-    riskLevel: topic.riskLevel,
-    score: topic.score,
-    keywords: topic.keywords,
-    evidence: topic.evidence,
-    relatedAssets: topic.relatedAssets,
-  }));
   const prompt = {
     role: 'user',
-    content: `你是证券业务内容运营助手。请基于券商评论和候选热点，生成 JSON，字段包括 topics。每个 topic 需要 title, summary, banner_title, banner_subtitle, half_screen_title, article, related_assets, risk_warning。文章控制在 500 字以内。禁止补充证据外事实，必须保留不构成投资建议提示。\n\n券商评论：${JSON.stringify(llmComment)}\n候选热点：${JSON.stringify(llmTopics)}`,
+    content: `你是证券业务内容运营助手。只基于券商评论正文提取热点、判断资产/产品线索、生成运营物料。不得使用外部事实，不得编造正文没有支撑的产品代码，不得给买卖建议。
+
+只输出严格 JSON：
+{"topics":[{"title":"","angle":"","sentiment":"positive|neutral|negative","risk_level":"low|medium|high","score":0,"keywords":[],"evidence":[],"summary":"","banner_title":"","banner_subtitle":"","half_screen_title":"","article":"","related_assets":[{"code":"","name":"","type":"ETF|股票|基金|指数|板块|其他","direction":"","risk":"低|中|中高|高","reason":""}],"risk_warning":""}]}
+
+约束：
+1. 输出 2-3 个 topics，按营销价值和证据强度降序。
+2. evidence 必须摘自正文，1-2 条即可。
+3. article 每篇 180-280 字，包含事实解读、关注理由、资产线索、风险提示。
+4. risk_warning 必须包含“不构成投资建议”。
+5. 只输出 JSON。
+
+券商评论：${JSON.stringify(llmComment)}`,
   };
   const res = await fetch(`${base}/chat/completions`, {
     method: 'POST',
@@ -344,6 +205,7 @@ async function generateWithLLM(comment, topics) {
       model,
       temperature: 0.2,
       response_format: { type: 'json_object' },
+      max_tokens: Number(process.env.LLM_MAX_TOKENS || 2600),
       messages: [
         { role: 'system', content: '只输出严格 JSON。' },
         prompt,
@@ -354,97 +216,143 @@ async function generateWithLLM(comment, topics) {
   if (!res.ok) throw new Error(`LLM ${res.status}`);
   const json = await res.json();
   const content = json.choices?.[0]?.message?.content;
-  const parsed = JSON.parse(content);
+  const parsed = parseLLMJson(content);
   return {
     generator: `llm:${model}`,
-    topics: normalizeGeneratedTopics(parsed.topics || [], topics, comment),
+    topics: normalizeLLMTopics(parsed.topics, comment),
   };
 }
 
-function normalizeGeneratedTopics(generated, topics, comment) {
-  return topics.map((topic, index) => {
-    const g = generated[index] || {};
-    return {
-      ...topic,
-      summary: g.summary || makeSummary(topic),
-      banner: {
-        title: g.banner_title || makeBannerTitle(topic),
-        subtitle: g.banner_subtitle || makeBannerSubtitle(topic),
-        buttonText: '查看热点解读',
-        riskTag: riskLabel(topic.riskLevel),
+function generateWithMockLLM(comment) {
+  return {
+    generator: 'llm:mock',
+    topics: normalizeLLMTopics([
+      {
+        title: '机器人产业链热度提升',
+        angle: '产业主题',
+        sentiment: 'positive',
+        risk_level: 'medium',
+        score: 88,
+        keywords: ['机器人', '物理AI', '智能制造'],
+        evidence: comment.paragraphs.filter(p => /机器人|物理AI|智能制造/.test(p)).slice(0, 2),
+        summary: '券商评论提到机器人和物理AI相对强势，产业链具备内容运营价值。',
+        banner_title: '机器人产业链升温',
+        banner_subtitle: 'AI提炼券商评论中的主题线索',
+        half_screen_title: 'AI解读机器人热点',
+        article: '券商评论显示，科技方向中物理AI、机器人等方向相对强势，相关产业链获得市场关注。该热点可从产业趋势和资金关注两个角度做解释型内容承接，但短期波动仍需关注。相关资产线索应以机器人产业链、智能制造等方向为主，不构成投资建议。市场有风险，投资需谨慎。',
+        related_assets: [
+          { code: '', name: '机器人产业链', type: '板块', direction: '机器人/智能制造', risk: '中高', reason: '正文提到机器人、物理AI相对强势。' },
+        ],
+        risk_warning: '市场有风险，投资需谨慎。本文不构成投资建议。',
       },
-      halfScreenTitle: g.half_screen_title || `AI 解读：${topic.title}`,
-      article: g.article || makeArticle(topic, comment),
-      riskWarning: g.risk_warning || compactRisk(comment.riskWarning),
+      {
+        title: '全球资产波动加剧',
+        angle: '宏观风险',
+        sentiment: 'negative',
+        risk_level: 'high',
+        score: 92,
+        keywords: ['全球资产', '大跌', '谨慎'],
+        evidence: comment.paragraphs.filter(p => /全球资产|大跌|谨慎/.test(p)).slice(0, 2),
+        summary: '评论提到多类资产同步波动，适合生成风险提示型热点内容。',
+        banner_title: '全球资产波动加剧',
+        banner_subtitle: '多市场承压，谨慎情绪升温',
+        half_screen_title: 'AI解读市场波动',
+        article: '券商评论提到，A股、港股、日韩股市等均出现明显波动，黄金和比特币也有走低，说明市场风险偏好仍在承压。该热点适合用于风险教育和市场观察类内容，重点强调仓位管理和理性判断。相关资产线索可关注避险、防守和宽基指数方向，但不构成投资建议。市场有风险，投资需谨慎。',
+        related_assets: [
+          { code: '', name: '防守资产方向', type: '板块', direction: '风险防御', risk: '中', reason: '正文提示全球资产波动和谨慎态度。' },
+        ],
+        risk_warning: '市场有风险，投资需谨慎。本文不构成投资建议。',
+      },
+    ], comment),
+  };
+}
+
+function parseLLMJson(content = '') {
+  const text = String(content).trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim();
+  return JSON.parse(text);
+}
+
+function normalizeLLMTopics(topics, comment) {
+  if (!Array.isArray(topics) || !topics.length) {
+    throw new Error('LLM response missing topics');
+  }
+  return topics.slice(0, 5).map((topic, index) => {
+    const title = assertString(topic.title, `topics[${index}].title`);
+    const riskLevel = normalizeRiskLevel(topic.risk_level || topic.riskLevel);
+    const relatedAssets = normalizeAssets(topic.related_assets || topic.relatedAssets || [], index);
+    const evidence = normalizeStringArray(topic.evidence, `topics[${index}].evidence`);
+    const keywords = normalizeStringArray(topic.keywords, `topics[${index}].keywords`);
+    const article = assertString(topic.article, `topics[${index}].article`);
+    const riskWarning = assertString(topic.risk_warning || topic.riskWarning, `topics[${index}].risk_warning`);
+    if (!riskWarning.includes('不构成投资建议')) {
+      throw new Error(`topics[${index}].risk_warning must include 不构成投资建议`);
+    }
+    return {
+      id: `${hash(`${comment.title}-${title}-${index}`).slice(0, 12)}`,
+      title,
+      angle: assertString(topic.angle, `topics[${index}].angle`),
+      sentiment: normalizeSentiment(topic.sentiment),
+      riskLevel,
+      score: normalizeScore(topic.score),
+      keywords,
+      evidence,
+      relatedAssets,
+      sourceColumn: comment.columnCode,
+      sourceTitle: comment.title,
+      summary: assertString(topic.summary, `topics[${index}].summary`),
+      banner: {
+        title: assertString(topic.banner_title || topic.bannerTitle, `topics[${index}].banner_title`),
+        subtitle: assertString(topic.banner_subtitle || topic.bannerSubtitle, `topics[${index}].banner_subtitle`),
+        buttonText: '查看热点解读',
+        riskTag: riskLabel(riskLevel),
+      },
+      halfScreenTitle: assertString(topic.half_screen_title || topic.halfScreenTitle, `topics[${index}].half_screen_title`),
+      article,
+      riskWarning,
     };
   });
 }
 
-function generateLocally(comment, topics) {
-  return {
-    topics: topics.map(topic => ({
-      ...topic,
-      summary: makeSummary(topic),
-      banner: {
-        title: makeBannerTitle(topic),
-        subtitle: makeBannerSubtitle(topic),
-        buttonText: '查看热点解读',
-        riskTag: riskLabel(topic.riskLevel),
-      },
-      halfScreenTitle: `AI 解读：${topic.title}`,
-      article: makeArticle(topic, comment),
-      riskWarning: compactRisk(comment.riskWarning),
-    })),
-  };
+function assertString(value, field) {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`LLM response missing ${field}`);
+  }
+  return value.trim();
 }
 
-function makeSummary(topic) {
-  const assetText = topic.relatedAssets.length ? `，关联${topic.relatedAssets.slice(0, 3).map(a => a.name).join('、')}` : '';
-  return `${topic.sourceTitle}中出现“${topic.keywords.slice(0, 3).join('、')}”等线索，${topic.angle}具备热点解读价值${assetText}。`;
+function normalizeStringArray(value, field) {
+  if (!Array.isArray(value) || !value.length) {
+    throw new Error(`LLM response missing ${field}`);
+  }
+  return value.map(item => assertString(item, field)).slice(0, 5);
 }
 
-function makeBannerTitle(topic) {
-  if (topic.id.startsWith('robotics')) return '机器人逆势升温，哪些方向被带动？';
-  if (topic.id.startsWith('global-risk')) return '全球资产剧烈波动，如何看待防守线索？';
-  if (topic.id.startsWith('city-renewal')) return '地下管网建设提速，基建链条受关注';
-  if (topic.id.startsWith('gold')) return '黄金储备持续增加，贵金属线索怎么看？';
-  return topic.title;
+function normalizeAssets(value, topicIndex) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 4).map((asset, assetIndex) => ({
+    code: typeof asset.code === 'string' ? asset.code.trim() : '',
+    name: assertString(asset.name, `topics[${topicIndex}].related_assets[${assetIndex}].name`),
+    type: assertString(asset.type, `topics[${topicIndex}].related_assets[${assetIndex}].type`),
+    direction: assertString(asset.direction, `topics[${topicIndex}].related_assets[${assetIndex}].direction`),
+    risk: assertString(asset.risk, `topics[${topicIndex}].related_assets[${assetIndex}].risk`),
+    reason: assertString(asset.reason, `topics[${topicIndex}].related_assets[${assetIndex}].reason`),
+  }));
 }
 
-function makeBannerSubtitle(topic) {
-  const assets = topic.relatedAssets.slice(0, 2).map(a => a.name).join('、');
-  return assets ? `AI 解读热点证据与${assets}` : 'AI 解读券商评论中的热点线索';
+function normalizeScore(value) {
+  const score = Number(value);
+  if (!Number.isFinite(score)) throw new Error('LLM response has invalid topic score');
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function makeArticle(topic, comment) {
-  const evidenceText = topic.evidence.map((e, i) => `${i + 1}. ${e}`).join('\n');
-  const assets = topic.relatedAssets.length
-    ? topic.relatedAssets.map(a => `${a.name}（${a.type}，${a.direction}，风险${a.risk}）`).join('、')
-    : '暂无明确资产映射，适合先作为资讯解读观察。';
-  return [
-    `# ${topic.title}`,
-    '',
-    `## 一句话摘要`,
-    makeSummary(topic),
-    '',
-    `## 发生了什么`,
-    evidenceText || '券商评论中出现相关市场线索，适合作为热点观察。',
-    '',
-    `## 为什么值得关注`,
-    `该热点属于${topic.angle}方向，热点评分 ${topic.score}。它同时具备${topic.keywords.slice(0, 4).join('、')}等关键词，可用于生成解释型内容和运营承接。`,
-    '',
-    `## 相关资产线索`,
-    assets,
-    '',
-    `## 风险提示`,
-    compactRisk(comment.riskWarning),
-  ].join('\n');
+function normalizeSentiment(value) {
+  if (['positive', 'neutral', 'negative'].includes(value)) return value;
+  throw new Error('LLM response has invalid sentiment');
 }
 
-function compactRisk(warn = '') {
-  const base = warn || '市场有风险，投资需谨慎。本文内容仅供辅助参考，不构成投资建议。';
-  const first = base.split(/[。\n]/).filter(Boolean).slice(0, 2).join('。');
-  return `${first}。`;
+function normalizeRiskLevel(value) {
+  if (['low', 'medium', 'high'].includes(value)) return value;
+  throw new Error('LLM response has invalid risk_level');
 }
 
 function riskLabel(level) {
@@ -454,8 +362,7 @@ function riskLabel(level) {
 async function runPipeline(columnCode = 'SEC0004') {
   const source = await fetchBrokerHtml(columnCode);
   const comment = parseBrokerHtml(source.html, columnCode);
-  const topics = extractTopics(comment);
-  const generated = await generateMaterials(comment, topics);
+  const generated = await generateMaterials(comment);
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
@@ -471,9 +378,8 @@ async function runPipeline(columnCode = 'SEC0004') {
       steps: [
         { id: 'fetch', name: '券商评论接口', status: 'done', detail: source.source },
         { id: 'parse', name: 'HTML 清洗与结构解析', status: 'done', detail: `${comment.paragraphs.length} 段正文` },
-        { id: 'extract', name: '热点抽取与资产映射', status: 'done', detail: `${topics.length} 个候选热点` },
-        { id: 'rank', name: '热点评分排序', status: 'done', detail: `Top1 ${topics[0]?.score || 0} 分` },
-        { id: 'generate', name: '生成文章和 Banner', status: 'done', detail: generated.generator },
+        { id: 'llm', name: 'LLM 提取热点与资产线索', status: 'done', detail: generated.generator },
+        { id: 'generate', name: 'LLM 生成文章和 Banner', status: 'done', detail: `${generated.topics.length} 个热点物料` },
       ],
     },
     topics: generated.topics,

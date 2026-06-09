@@ -30,24 +30,25 @@ BROKER_PROXY_USER="user:password"
 BROKER_BUSS_ID=10001
 ```
 
-可选 OpenAI-compatible LLM：
+必需 OpenAI-compatible LLM。`/api/analyze` 不使用本地规则或模板兜底；未配置或调用失败会直接返回错误：
 
 ```bash
 OPENAI_API_KEY="..."
 OPENAI_API_BASE="https://api.openai.com/v1"
 OPENAI_MODEL="gpt-4.1-mini"
+LLM_TIMEOUT_MS=90000
 ```
 
-无代理配置或无模型 key 时，项目使用内置券商评论样例和本地规则生成器，保证完整链路可运行。
+无代理配置时，项目可使用内置券商评论样例作为输入；但热点提取、资产线索判断、Banner 和文章生成只由 LLM 完成。
 
 ## MVP Chain
 
 1. 券商评论接口/样例：读取 `SEC0001` 早午晚盘资讯、`SEC0003` 早盘前瞻、`SEC0004` 盘中解读、`SEC0007` 盘后收评、`SEC0034` 产业链图谱。
 2. HTML 清洗：解析标题、正文段落、数据来源和风险提示。
-3. 热点抽取：按关键词证据抽取宏观风险、机器人、城市更新、地缘、黄金、AI 芯片、红利防守等候选热点。
-4. 资产映射：把热点关键词映射到 ETF/股票资产线索，输出匹配关键词、方向和风险等级。
-5. 内容生成：优先使用 OpenAI-compatible LLM；未配置时使用本地规则生成 Banner、半屏标题和热点文章。
-6. Web 可视化：页面展示链路步骤、券商原文解析、热点排序、文章、Banner/半屏/资产卡片和结构化 JSON。
+3. LLM 热点提取：把结构化券商评论直接发给 LLM，由 LLM 提取 2-5 个热点、证据句、关键词、评分、情绪和风险等级。
+4. LLM 资产线索判断：由 LLM 根据正文证据判断产品/资产/板块线索；正文不足以支撑具体产品代码时要求留空，不强行编造。
+5. LLM 物料生成：由 LLM 生成 Banner、半屏标题、热点摘要、文章和风险提示；生成失败直接报错。
+6. Web 可视化：页面展示链路步骤、券商原文解析、LLM 热点列表、文章、Banner/半屏/资产卡片和结构化 JSON。
 
 ## API
 

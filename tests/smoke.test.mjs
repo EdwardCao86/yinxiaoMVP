@@ -9,6 +9,8 @@ const server = spawn(process.execPath, ['server.mjs'], {
     ...process.env,
     PORT: String(PORT),
     BROKER_API_DISABLED: 'true',
+    MOCK_LLM: 'true',
+    OPENAI_API_KEY: '',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
@@ -30,9 +32,10 @@ try {
 
   const analysis = await getJson('/api/analyze?columnCode=SEC0004');
   assert.equal(analysis.ok, true);
-  assert.ok(analysis.topics.length >= 3);
+  assert.equal(analysis.pipeline.steps.some(step => step.detail === 'llm:mock'), true);
+  assert.ok(analysis.topics.length >= 2);
   assert.ok(analysis.topics[0].banner.title);
-  assert.ok(analysis.topics[0].article.includes('风险提示'));
+  assert.ok(analysis.topics[0].article.includes('不构成投资建议'));
   assert.ok(analysis.topics.some(t => t.title.includes('机器人')));
 
   const html = await getText('/');
