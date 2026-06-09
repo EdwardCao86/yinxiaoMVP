@@ -1,0 +1,16 @@
+server.mjs
+  h_7934dcd8b25b2f 226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c9375506fb2420efbde3d0b3e0716aee2944b916",
+  "prompts": {},
+  "humans": {
+    "h_7934dcd8b25b2f": {
+      "author": "caoyujuncheng <caoyujuncheng@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
