@@ -18,6 +18,7 @@ const BROKER_API_URL = process.env.BROKER_API_URL || 'https://saas.htsc.com.cn:1
 const BROKER_BUSS_ID = Number(process.env.BROKER_BUSS_ID || 10001);
 const BROKER_PROXY_URL = process.env.BROKER_PROXY_URL || '';
 const BROKER_PROXY_USER = process.env.BROKER_PROXY_USER || '';
+const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 90000);
 
 function loadDotEnv() {
   const envPath = path.join(ROOT, '.env');
@@ -189,9 +190,16 @@ async function fetchBrokerHtml(columnCode) {
     return {
       html: sampleHtml[columnCode] || sampleHtml.SEC0004,
       source: 'sample-fallback',
-      note: `broker api unavailable: ${error.message}`,
+      note: `broker api unavailable: ${sanitizeErrorMessage(error.message)}`,
     };
   }
+}
+
+function sanitizeErrorMessage(message = '') {
+  let sanitized = String(message);
+  if (BROKER_PROXY_USER) sanitized = sanitized.replaceAll(BROKER_PROXY_USER, '<BROKER_PROXY_USER>');
+  if (process.env.OPENAI_API_KEY) sanitized = sanitized.replaceAll(process.env.OPENAI_API_KEY, '<OPENAI_API_KEY>');
+  return sanitized;
 }
 
 function extractHtmlFromApiPayload(payload) {
@@ -303,9 +311,28 @@ async function generateMaterials(comment, topics) {
 async function generateWithLLM(comment, topics) {
   const base = (process.env.OPENAI_API_BASE || 'https://api.openai.com/v1').replace(/\/$/, '');
   const model = process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+  const llmComment = {
+    columnCode: comment.columnCode,
+    columnName: comment.columnName,
+    title: comment.title,
+    publishDate: comment.publishDate,
+    paragraphs: comment.paragraphs,
+    dataSourceText: comment.dataSourceText,
+    riskWarning: comment.riskWarning,
+  };
+  const llmTopics = topics.map(topic => ({
+    title: topic.title,
+    angle: topic.angle,
+    sentiment: topic.sentiment,
+    riskLevel: topic.riskLevel,
+    score: topic.score,
+    keywords: topic.keywords,
+    evidence: topic.evidence,
+    relatedAssets: topic.relatedAssets,
+  }));
   const prompt = {
     role: 'user',
-    content: `你是证券业务内容运营助手。请基于券商评论和候选热点，生成 JSON，字段包括 topics。每个 topic 需要 title, summary, banner_title, banner_subtitle, half_screen_title, article, related_assets, risk_warning。禁止补充证据外事实，必须保留不构成投资建议提示。\n\n券商评论：${JSON.stringify(comment)}\n候选热点：${JSON.stringify(topics)}`,
+    content: `你是证券业务内容运营助手。请基于券商评论和候选热点，生成 JSON，字段包括 topics。每个 topic 需要 title, summary, banner_title, banner_subtitle, half_screen_title, article, related_assets, risk_warning。文章控制在 500 字以内。禁止补充证据外事实，必须保留不构成投资建议提示。\n\n券商评论：${JSON.stringify(llmComment)}\n候选热点：${JSON.stringify(llmTopics)}`,
   };
   const res = await fetch(`${base}/chat/completions`, {
     method: 'POST',
@@ -322,7 +349,7 @@ async function generateWithLLM(comment, topics) {
         prompt,
       ],
     }),
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`LLM ${res.status}`);
   const json = await res.json();
