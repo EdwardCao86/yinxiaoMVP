@@ -18,7 +18,7 @@ const BROKER_API_URL = process.env.BROKER_API_URL || 'https://saas.htsc.com.cn:1
 const BROKER_BUSS_ID = Number(process.env.BROKER_BUSS_ID || 10001);
 const BROKER_PROXY_URL = process.env.BROKER_PROXY_URL || '';
 const BROKER_PROXY_USER = process.env.BROKER_PROXY_USER || '';
-const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 90000);
+const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 180000);
 
 function loadDotEnv() {
   const envPath = path.join(ROOT, '.env');
@@ -172,85 +172,62 @@ async function generateWithLLM(comment) {
     columnName: comment.columnName,
     title: comment.title,
     publishDate: comment.publishDate,
-    paragraphs: comment.paragraphs.map(p => p.slice(0, 360)).slice(0, 8),
+    paragraphs: comment.paragraphs.map(p => p.slice(0, 300)).slice(0, 6),
     dataSourceText: comment.dataSourceText,
     riskWarning: comment.riskWarning,
   };
   const prompt = {
     role: 'user',
-    content: `你是券商 App 的证券资讯运营助手，目标是把一篇券商评论转成可用于 App 首页/行情页分发的热点内容物料。
+    content: `你是券商 App 证券资讯运营助手。只基于输入的券商评论，提取可用于首页/行情页分发的热点并生成物料。禁止外部事实、禁止编造产品代码、禁止买卖建议或收益暗示。
 
-输入说明：
-- 输入是券商评论 HTML 清洗后的结构化正文。
-- 只能使用输入中的标题、正文、数据来源和风险提示。
-- 不得使用外部事实，不得补充正文没有支撑的事件、数据、公司或产品。
+输出任务：提取 2-3 个独立热点；每个热点给出证据、关键词、资产/产品线索、Banner、半屏标题、摘要、短文章、风险提示。
 
-任务：
-1. 从正文中提取 2-3 个最适合做营销分发的热点。
-2. 为每个热点判断资产/产品/板块线索。
-3. 生成 Banner、半屏标题、摘要、文章和风险提示。
+热点标准：证据明确；用户可理解；适合运营承接；一个 topic 只表达一个主线，不合并无直接因果关系的主题；宁可 2 个高质量热点，不要凑数。
 
-热点选择标准，按优先级排序：
-1. 正文证据明确，至少能摘出 1 条原文证据句。
-2. 用户可理解，有清晰的投资者关注点，例如风险波动、政策催化、产业事件、市场风格、资产配置。
-3. 适合做运营承接，有可解释的资产/板块/产品线索。
-4. 一个 topic 只能表达一个主线；没有直接因果关系的主题必须拆开，不能为了凑数量合并。
-5. 不输出只有一句泛泛表述、缺少证据或难以承接的主题；宁可输出 2 个高质量热点，也不要输出 3 个拼接热点。
+资产线索规则：优先输出可承接金融产品品类，顺序为 具体证券/基金/ETF > 明确指数 > 常见 ETF/基金品类 > 行业/主题板块 > 其他资产方向。正文未出现具体代码时 code 必须为空。可用名称示例：宽基指数ETF、沪深300ETF、中证A500ETF、黄金ETF、债券基金、红利低波ETF、银行ETF、机器人ETF、半导体ETF、基建ETF、恒生科技ETF。reason 必须基于正文证据。
 
-资产/产品线索规则：
-1. 只有正文明确提到具体产品、指数、股票、基金、ETF 时，才可输出具体 code/name。
-2. 正文只支持方向判断时，优先输出更接近真实金融产品承接的名称，但 code 必须为空字符串。
-3. 产品承接优先级：具体证券/基金/ETF > 明确指数 > 常见 ETF/基金品类 > 行业或主题板块 > 其他资产方向。
-4. 如果正文提到“黄金、红利、银行、机器人、半导体、基建、宽基指数、港股、A股”等方向，可输出类似“黄金ETF”“红利低波ETF”“银行ETF”“机器人ETF”“半导体ETF”“基建ETF”“沪深300ETF/中证A500ETF”“恒生科技ETF”等产品品类名称；但除非正文或输入中出现具体代码，否则 code 必须为空。
-5. 如果只是无法产品化的宏观风险、地缘扰动、市场情绪，可输出“宽基指数ETF”“黄金ETF”“债券基金”等泛产品品类；不要只输出“市场风险方向”这类不可承接名称。
-6. 禁止编造产品代码，禁止写成确定推荐，禁止输出收益承诺。
-7. reason 必须说明“为什么该产品品类/资产线索与热点相关”，依据必须来自正文。
-
-文案风格：
-1. Banner 标题要短、有信息点，避免夸张和收益暗示。
-2. Banner 副标题说明核心变化或观察角度。
-3. article 用资讯解读口吻，不要 Markdown 标题，不要列表符号，不要投资建议。
-4. 风险提示必须自然包含“不构成投资建议”。
-
-只输出严格 JSON：
+JSON schema：
 {"topics":[{"title":"","angle":"","sentiment":"positive|neutral|negative","risk_level":"low|medium|high","score":0,"keywords":[],"evidence":[],"summary":"","banner_title":"","banner_subtitle":"","half_screen_title":"","article":"","related_assets":[{"code":"","name":"","type":"ETF|股票|基金|指数|板块|其他","direction":"","risk":"低|中|中高|高","reason":""}],"risk_warning":""}]}
 
 字段约束：
-1. topics 输出 2-3 个，按营销价值和证据强度降序，注意topic内容不要重复。
-2. title 尽量 14-18 个中文字符，必须是单一主题；banner_title 16 字以内；banner_subtitle 24 字以内；half_screen_title 20 字以内。
-3. score 为 0-100 整数，综合证据强度、用户关注度、运营承接价值。
-4. keywords 输出 3-5 个，必须来自正文或正文中的概念。
-5. evidence 输出 1-2 条，必须是正文原句或尽量接近原句。
-6. summary 60-90 字。
-7. article 180-260 字，必须覆盖：发生了什么、为什么值得关注、相关资产线索、风险提示。
-8. related_assets 每个热点优先输出 3-5 个最相关线索；只有正文证据不足以支撑更多线索时才少于 3 个。优先输出 ETF/基金/指数等可承接金融产品品类，注意不要太空泛具体一点，避免例如A股，港股这样的输出，code 无正文支撑时为空。
+1. topics 2-3 个，按营销价值和证据强度降序，不重复。
+2. title 14-18 字；banner_title 16 字以内；banner_subtitle 24 字以内；half_screen_title 20 字以内。
+3. keywords 3-5 个，evidence 1-2 条，evidence 必须来自正文。
+4. summary 50-80 字；article 120-180 字，覆盖事实、关注理由、资产线索和风险提示。
+5. related_assets 每个热点优先输出 3-5 个，证据不足时可少于 3 个；名称要尽量接近真实金融产品或产品品类，避免只写 A股/港股/市场情绪。
 9. risk_warning 必须包含“不构成投资建议”。
-10. **只输出 JSON，不要 Markdown，不要解释，不要代码块。**。
+10. 只输出 JSON，不要 Markdown，不要解释，不要代码块。
 
 券商评论：${JSON.stringify(llmComment)}`,
   };
-  const res = await fetch(`${base}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-      max_tokens: Number(process.env.LLM_MAX_TOKENS || 2600),
-      messages: [
-        { role: 'system', content: '只输出严格 JSON。' },
-        prompt,
-      ],
-    }),
-    signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-  });
+  let res;
+  try {
+    res = await fetch(`${base}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+        max_tokens: Number(process.env.LLM_MAX_TOKENS || 2200),
+        messages: [
+          { role: 'system', content: '只输出严格 JSON。' },
+          prompt,
+        ],
+      }),
+      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error.name === 'TimeoutError' || /aborted|timeout/i.test(error.message)) {
+      throw new Error(`LLM 调用超过 ${Math.round(LLM_TIMEOUT_MS / 1000)} 秒，请稍后重试或切换更快模型`);
+    }
+    throw error;
+  }
   if (!res.ok) throw new Error(`LLM ${res.status}`);
   const rawText = await res.text();
-  console.log('[LLM] response content-type:', res.headers.get('content-type') || 'unknown');
-  console.log('[LLM] raw response text:', rawText);
   let json;
   try {
     json = JSON.parse(rawText);
@@ -258,7 +235,6 @@ async function generateWithLLM(comment) {
     throw new Error(`LLM returned non-JSON response: ${sanitizeErrorMessage(rawText.slice(0, 300))}`);
   }
   const content = json.choices?.[0]?.message?.content;
-  console.log('[LLM] raw response content:', content);
   const parsed = parseLLMJson(content);
   return {
     generator: `llm:${model}`,

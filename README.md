@@ -43,7 +43,8 @@ BROKER_BUSS_ID=10001
 OPENAI_API_KEY="..."
 OPENAI_API_BASE="https://api.openai.com/v1"
 OPENAI_MODEL="gpt-4.1-mini"
-LLM_TIMEOUT_MS=90000
+LLM_TIMEOUT_MS=180000
+LLM_MAX_TOKENS=2200
 ```
 
 无代理配置时，项目可使用内置券商评论样例作为输入；但热点提取、资产线索判断、Banner 和文章生成只由 LLM 完成。
