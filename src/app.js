@@ -1,6 +1,10 @@
 const state = {
   data: null,
+  comment: null,
+  source: null,
+  pipelineSteps: initialPipelineSteps(),
   selectedTopicId: null,
+  running: false,
 };
 
 const $ = id => document.getElementById(id);
@@ -22,20 +26,47 @@ async function loadColumns() {
 }
 
 async function runPipeline() {
-  showLoading(true);
+  if (state.running) return;
+  state.running = true;
+  setRunDisabled(true);
+  state.data = null;
+  state.comment = null;
+  state.source = null;
+  state.selectedTopicId = null;
+  state.pipelineSteps = initialPipelineSteps();
+  clearResultPanels();
+  setStepStatus('fetch', 'running', '正在请求券商评论');
+  renderPipeline();
   try {
     const columnCode = $('columnSelect').value;
-    const res = await fetch(`/api/analyze?columnCode=${encodeURIComponent(columnCode)}`);
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error || '链路运行失败');
-    state.data = json;
-    state.selectedTopicId = json.topics[0]?.id || null;
+    const commentJson = await fetchJson(`/api/comment?columnCode=${encodeURIComponent(columnCode)}`);
+    state.comment = commentJson.data;
+    state.source = commentJson.source;
+    setStepStatus('fetch', 'done', commentJson.source.source || commentJson.source.kind || 'done');
+    setStepStatus('parse', 'done', `${state.comment.paragraphs.length} 段正文`);
+    renderComment();
+    setStepStatus('llm', 'running', '正在调用 LLM 提取热点与资产线索');
+    renderPipeline();
+
+    const materialsJson = await fetchJson('/api/materials', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ comment: state.comment, source: state.source }),
+    });
+    state.data = materialsJson;
+    state.pipelineSteps = materialsJson.pipeline.steps.map(step => ({ ...step, status: 'done' }));
+    setStepStatus('generate', 'done', `${materialsJson.topics.length} 个热点物料`);
+    state.selectedTopicId = materialsJson.topics[0]?.id || null;
     renderAll();
-    toast(`链路完成：${json.topics.length} 个热点`);
+    toast(`链路完成：${materialsJson.topics.length} 个热点`);
   } catch (error) {
+    markCurrentStepError(error.message);
+    renderPipeline();
+    renderError(error.message);
     toast(error.message);
   } finally {
-    showLoading(false);
+    state.running = false;
+    setRunDisabled(false);
   }
 }
 
@@ -52,9 +83,9 @@ function renderAll() {
 }
 
 function renderPipeline() {
-  $('pipeline').innerHTML = state.data.pipeline.steps.map(step => `
-    <div class="step">
-      <span class="badge green">done</span>
+  $('pipeline').innerHTML = state.pipelineSteps.map(step => `
+    <div class="step ${escapeHtml(step.status)}">
+      <span class="step-icon ${escapeHtml(step.status)}"></span>
       <b>${escapeHtml(step.name)}</b>
       <small>${escapeHtml(step.detail || '')}</small>
     </div>
@@ -62,12 +93,13 @@ function renderPipeline() {
 }
 
 function renderComment() {
-  const c = state.data.comment;
+  const c = state.data?.comment || state.comment;
+  if (!c) return;
   $('commentBox').innerHTML = `
     <div class="comment-title">${escapeHtml(c.title)}</div>
     <div class="row" style="margin-top: 12px">
       <span class="badge">${escapeHtml(c.columnName)}</span>
-      <span class="badge orange">${escapeHtml(state.data.source.kind)}</span>
+      <span class="badge orange">${escapeHtml(state.data?.source.kind || state.source?.source || '')}</span>
     </div>
     <div class="paragraphs">
       ${c.paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('')}
@@ -134,8 +166,57 @@ function uniqueAssets(topics) {
   return [...set];
 }
 
-function showLoading(show) {
-  $('loading').classList.toggle('show', show);
+async function fetchJson(url, options) {
+  const res = await fetch(url, options);
+  const json = await res.json();
+  if (!res.ok || !json.ok) throw new Error(json.error || `请求失败：${res.status}`);
+  return json;
+}
+
+function initialPipelineSteps() {
+  return [
+    { id: 'fetch', name: '券商评论接口', status: 'pending', detail: '等待开始' },
+    { id: 'parse', name: 'HTML 清洗与结构解析', status: 'pending', detail: '等待券商评论' },
+    { id: 'llm', name: 'LLM 提取热点与资产线索', status: 'pending', detail: '等待结构化正文' },
+    { id: 'generate', name: 'LLM 生成文章和 Banner', status: 'pending', detail: '等待热点结果' },
+  ];
+}
+
+function setStepStatus(id, status, detail) {
+  state.pipelineSteps = state.pipelineSteps.map(step => (
+    step.id === id ? { ...step, status, detail } : step
+  ));
+}
+
+function markCurrentStepError(message) {
+  const running = state.pipelineSteps.find(step => step.status === 'running');
+  const target = running || state.pipelineSteps.find(step => step.status === 'pending');
+  if (target) setStepStatus(target.id, 'error', message || '链路失败');
+}
+
+function clearResultPanels() {
+  $('topicCount').textContent = '--';
+  $('assetCount').textContent = '--';
+  $('generator').textContent = 'LLM';
+  $('commentBox').innerHTML = '<div class="empty">等待券商评论解析...</div>';
+  $('topicList').innerHTML = '<div class="empty">等待 LLM 生成热点...</div>';
+  $('articleBox').innerHTML = '<div class="empty">等待热点文章...</div>';
+  $('bannerBox').innerHTML = '';
+  $('halfBox').innerHTML = '';
+  $('assetBox').innerHTML = '';
+  $('rawJson').textContent = '';
+}
+
+function renderError(message) {
+  const safe = escapeHtml(message || '链路失败');
+  $('topicList').innerHTML = `<div class="error-box"><b>生成失败</b><p>${safe}</p></div>`;
+  $('articleBox').innerHTML = `<div class="error-box"><b>失败原因</b><p>${safe}</p></div>`;
+  $('rawJson').textContent = JSON.stringify({ ok: false, error: message }, null, 2);
+}
+
+function setRunDisabled(disabled) {
+  $('runBtn').disabled = disabled;
+  $('runBtn').textContent = disabled ? '运行中...' : '运行全链路';
 }
 
 let timer;

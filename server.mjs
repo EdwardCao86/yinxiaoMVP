@@ -158,9 +158,6 @@ function extractHtmlFromApiPayload(payload) {
 }
 
 async function generateMaterials(comment) {
-  if (process.env.MOCK_LLM === 'true') {
-    return generateWithMockLLM(comment);
-  }
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is required for hotspot generation');
   }
@@ -220,50 +217,6 @@ async function generateWithLLM(comment) {
   return {
     generator: `llm:${model}`,
     topics: normalizeLLMTopics(parsed.topics, comment),
-  };
-}
-
-function generateWithMockLLM(comment) {
-  return {
-    generator: 'llm:mock',
-    topics: normalizeLLMTopics([
-      {
-        title: '机器人产业链热度提升',
-        angle: '产业主题',
-        sentiment: 'positive',
-        risk_level: 'medium',
-        score: 88,
-        keywords: ['机器人', '物理AI', '智能制造'],
-        evidence: comment.paragraphs.filter(p => /机器人|物理AI|智能制造/.test(p)).slice(0, 2),
-        summary: '券商评论提到机器人和物理AI相对强势，产业链具备内容运营价值。',
-        banner_title: '机器人产业链升温',
-        banner_subtitle: 'AI提炼券商评论中的主题线索',
-        half_screen_title: 'AI解读机器人热点',
-        article: '券商评论显示，科技方向中物理AI、机器人等方向相对强势，相关产业链获得市场关注。该热点可从产业趋势和资金关注两个角度做解释型内容承接，但短期波动仍需关注。相关资产线索应以机器人产业链、智能制造等方向为主，不构成投资建议。市场有风险，投资需谨慎。',
-        related_assets: [
-          { code: '', name: '机器人产业链', type: '板块', direction: '机器人/智能制造', risk: '中高', reason: '正文提到机器人、物理AI相对强势。' },
-        ],
-        risk_warning: '市场有风险，投资需谨慎。本文不构成投资建议。',
-      },
-      {
-        title: '全球资产波动加剧',
-        angle: '宏观风险',
-        sentiment: 'negative',
-        risk_level: 'high',
-        score: 92,
-        keywords: ['全球资产', '大跌', '谨慎'],
-        evidence: comment.paragraphs.filter(p => /全球资产|大跌|谨慎/.test(p)).slice(0, 2),
-        summary: '评论提到多类资产同步波动，适合生成风险提示型热点内容。',
-        banner_title: '全球资产波动加剧',
-        banner_subtitle: '多市场承压，谨慎情绪升温',
-        half_screen_title: 'AI解读市场波动',
-        article: '券商评论提到，A股、港股、日韩股市等均出现明显波动，黄金和比特币也有走低，说明市场风险偏好仍在承压。该热点适合用于风险教育和市场观察类内容，重点强调仓位管理和理性判断。相关资产线索可关注避险、防守和宽基指数方向，但不构成投资建议。市场有风险，投资需谨慎。',
-        related_assets: [
-          { code: '', name: '防守资产方向', type: '板块', direction: '风险防御', risk: '中', reason: '正文提示全球资产波动和谨慎态度。' },
-        ],
-        risk_warning: '市场有风险，投资需谨慎。本文不构成投资建议。',
-      },
-    ], comment),
   };
 }
 
@@ -363,6 +316,10 @@ async function runPipeline(columnCode = 'SEC0004') {
   const source = await fetchBrokerHtml(columnCode);
   const comment = parseBrokerHtml(source.html, columnCode);
   const generated = await generateMaterials(comment);
+  return buildPipelineResult(source, comment, generated);
+}
+
+function buildPipelineResult(source, comment, generated) {
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
@@ -384,6 +341,12 @@ async function runPipeline(columnCode = 'SEC0004') {
     },
     topics: generated.topics,
   };
+}
+
+async function readJsonBody(req) {
+  let body = '';
+  for await (const chunk of req) body += chunk;
+  return body ? JSON.parse(body) : {};
 }
 
 function hash(input) {
@@ -423,6 +386,13 @@ const server = http.createServer(async (req, res) => {
       const columnCode = url.searchParams.get('columnCode') || 'SEC0004';
       const source = await fetchBrokerHtml(columnCode);
       return json(res, { ok: true, source, data: parseBrokerHtml(source.html, columnCode) });
+    }
+    if (url.pathname === '/api/materials' && req.method === 'POST') {
+      const body = await readJsonBody(req);
+      if (!body.comment) throw new Error('comment is required');
+      const generated = await generateMaterials(body.comment);
+      const source = body.source || { source: 'client-comment' };
+      return json(res, buildPipelineResult(source, body.comment, generated));
     }
     if (url.pathname === '/api/analyze') {
       const columnCode = url.searchParams.get('columnCode') || 'SEC0004';

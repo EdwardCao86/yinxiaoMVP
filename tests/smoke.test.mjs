@@ -9,7 +9,6 @@ const server = spawn(process.execPath, ['server.mjs'], {
     ...process.env,
     PORT: String(PORT),
     BROKER_API_DISABLED: 'true',
-    MOCK_LLM: 'true',
     OPENAI_API_KEY: '',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -30,13 +29,9 @@ try {
   assert.match(comment.data.title, /盘中解读/);
   assert.ok(comment.data.paragraphs.length >= 4);
 
-  const analysis = await getJson('/api/analyze?columnCode=SEC0004');
-  assert.equal(analysis.ok, true);
-  assert.equal(analysis.pipeline.steps.some(step => step.detail === 'llm:mock'), true);
-  assert.ok(analysis.topics.length >= 2);
-  assert.ok(analysis.topics[0].banner.title);
-  assert.ok(analysis.topics[0].article.includes('不构成投资建议'));
-  assert.ok(analysis.topics.some(t => t.title.includes('机器人')));
+  const analysis = await getJson('/api/analyze?columnCode=SEC0004', false);
+  assert.equal(analysis.ok, false);
+  assert.match(analysis.error, /OPENAI_API_KEY is required/);
 
   const html = await getText('/');
   assert.match(html, /券商评论热点生成 MVP/);
@@ -66,6 +61,8 @@ async function getText(pathname) {
   return res.text();
 }
 
-async function getJson(pathname) {
-  return JSON.parse(await getText(pathname));
+async function getJson(pathname, expectOk = true) {
+  const res = await fetch(`${base}${pathname}`);
+  assert.equal(res.ok, expectOk, pathname);
+  return JSON.parse(await res.text());
 }
