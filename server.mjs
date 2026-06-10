@@ -18,7 +18,7 @@ const BROKER_API_URL = process.env.BROKER_API_URL || '';
 const BROKER_BUSS_ID = Number(process.env.BROKER_BUSS_ID || 10001);
 const BROKER_PROXY_URL = process.env.BROKER_PROXY_URL || '';
 const BROKER_PROXY_USER = process.env.BROKER_PROXY_USER || '';
-const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 180000);
+const LLM_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 190000);
 
 function loadDotEnv() {
   const envPath = path.join(ROOT, '.env');
